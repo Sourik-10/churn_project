@@ -8,8 +8,13 @@ Wraps the outputs of 01-05 scripts into a clickable UI:
 - Predict: score a new customer using the saved best model
 - Risk List: browse/filter the prioritized outreach list
 
+Self-bootstrapping: if the cleaned/featured data or trained model aren't
+present (e.g. on a fresh Streamlit Cloud deploy where only the raw CSV is
+committed to git), this file regenerates them on first load from the raw
+CSV, so `streamlit run app.py` works on its own without running 01/02/04
+by hand first. Results are cached so this only happens once per session.
+
 Run: streamlit run app.py
-(Run 01-05 scripts first at least once so data/outputs/models exist.)
 """
 
 import streamlit as st
@@ -19,8 +24,15 @@ import joblib
 import plotly.express as px
 import os
 
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+
 st.set_page_config(page_title="Churn Analysis Dashboard", layout="wide")
 
+RAW_PATH = "data/Telco-Customer-Churn.csv"
 DATA_PATH = "data/telco_featured.csv"
 MODEL_PATH = "models/best_model.pkl"
 OUTREACH_PATH = "outputs/prioritized_outreach_list.csv"
@@ -36,20 +48,96 @@ CATEGORICAL_FEATURES = [
     "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
     "Contract", "PaperlessBilling", "PaymentMethod", "MonthToMonthHighCharge",
 ]
+ADDON_COLS = [
+    "OnlineSecurity", "OnlineBackup", "DeviceProtection",
+    "TechSupport", "StreamingTV", "StreamingMovies",
+]
+
+
+def clean_and_engineer(raw_path: str) -> pd.DataFrame:
+    """Same logic as 01_clean_data.py + 02_feature_engineering.py, inlined
+    so the dashboard can bootstrap itself from just the raw CSV."""
+    df = pd.read_csv(raw_path)
+    df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+    df.loc[df["TotalCharges"].isna(), "TotalCharges"] = 0
+    df["ChurnFlag"] = (df["Churn"] == "Yes").astype(int)
+
+    df["TenureBucket"] = pd.cut(
+        df["tenure"], bins=[-1, 6, 12, 24, 48, 72],
+        labels=["0-6mo", "7-12mo", "1-2yr", "2-4yr", "4-6yr"],
+    )
+    df["RevenuePerTenureMonth"] = df["TotalCharges"] / df["tenure"].replace(0, 1)
+    df["NumAddonServices"] = (df[ADDON_COLS] == "Yes").sum(axis=1)
+    df["HasNoAddons"] = (df["NumAddonServices"] == 0).astype(int)
+    median_charge = df["MonthlyCharges"].median()
+    df["MonthToMonthHighCharge"] = (
+        (df["Contract"] == "Month-to-month") & (df["MonthlyCharges"] > median_charge)
+    ).astype(int)
+    return df
+
+
+def train_quick_model(df: pd.DataFrame):
+    """Trains a Logistic Regression pipeline (the model that won in
+    04_modeling.py's comparison) as a fallback when no saved model exists."""
+    X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+    y = df["ChurnFlag"]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=42
+    )
+    preprocessor = ColumnTransformer([
+        ("num", StandardScaler(), NUMERIC_FEATURES),
+        ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
+    ])
+    pipe = Pipeline([
+        ("prep", preprocessor),
+        ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
+    ])
+    pipe.fit(X_train, y_train)
+    return pipe, X_test, y_test
+
+
+def build_outreach_list(pipe, X_test, y_test):
+    proba = pipe.predict_proba(X_test)[:, 1]
+    out = X_test.copy()
+    out["ChurnFlag"] = y_test.values
+    out["ChurnProba"] = proba
+    out["RiskTier"] = out["ChurnProba"].apply(
+        lambda p: "High" if p >= 0.6 else "Medium" if p >= 0.3 else "Low"
+    )
+    return out
 
 
 @st.cache_data
 def load_data():
-    if not os.path.exists(DATA_PATH):
-        return None
-    return pd.read_csv(DATA_PATH)
+    if os.path.exists(DATA_PATH):
+        return pd.read_csv(DATA_PATH)
+    if os.path.exists(RAW_PATH):
+        df = clean_and_engineer(RAW_PATH)
+        os.makedirs("data", exist_ok=True)
+        df.to_csv(DATA_PATH, index=False)
+        return df
+    return None
 
 
 @st.cache_resource
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        return None
-    return joblib.load(MODEL_PATH)
+def load_model_and_outreach(df: pd.DataFrame):
+    """Returns (model_obj, outreach_df). Loads saved artifacts if present,
+    otherwise trains/generates them on the fly from df."""
+    if os.path.exists(MODEL_PATH):
+        model_obj = joblib.load(MODEL_PATH)
+    else:
+        model_obj = None  # trained below alongside the outreach list
+
+    if os.path.exists(OUTREACH_PATH) and model_obj is not None:
+        outreach = pd.read_csv(OUTREACH_PATH)
+        return model_obj, outreach
+
+    # Bootstrap: train a fresh model and build the outreach list from it
+    pipe, X_test, y_test = train_quick_model(df)
+    outreach = build_outreach_list(pipe, X_test, y_test)
+    if model_obj is None:
+        model_obj = pipe
+    return model_obj, outreach
 
 
 def predict_one(model_obj, row_df):
@@ -64,17 +152,18 @@ def predict_one(model_obj, row_df):
 
 
 df = load_data()
-model_obj = load_model()
 
 st.title("📉 Customer Churn Analysis — Telco Dataset")
 
-if df is None or model_obj is None:
+if df is None:
     st.error(
-        "Data or model not found. Run `python 01_clean_data.py`, "
-        "`02_feature_engineering.py`, and `04_modeling.py` first, "
-        "then restart this dashboard."
+        f"Could not find `{RAW_PATH}`. Make sure the raw dataset CSV is "
+        "committed to the repo under `data/`."
     )
     st.stop()
+
+with st.spinner("Preparing model (first load only, cached after this)..."):
+    model_obj, outreach_df = load_model_and_outreach(df)
 
 tab_overview, tab_eda, tab_predict, tab_risk = st.tabs(
     ["📊 Overview", "🔍 EDA", "🧮 Predict a Customer", "🎯 Risk List"]
@@ -194,23 +283,19 @@ with tab_predict:
 # ---------------- Risk list ----------------
 with tab_risk:
     st.subheader("Prioritized outreach list")
-    if os.path.exists(OUTREACH_PATH):
-        outreach = pd.read_csv(OUTREACH_PATH)
-        tier_filter = st.multiselect(
-            "Filter by risk tier", options=["High", "Medium", "Low"],
-            default=["High", "Medium", "Low"],
-        )
-        filtered = outreach[outreach["RiskTier"].isin(tier_filter)]
-        st.write(f"Showing {len(filtered)} of {len(outreach)} customers")
-        st.dataframe(
-            filtered[["ChurnProba", "RiskTier", "MonthlyCharges", "tenure", "Contract"]]
-            .sort_values("ChurnProba", ascending=False),
-            use_container_width=True,
-        )
-        st.download_button(
-            "Download filtered list as CSV",
-            filtered.to_csv(index=False),
-            "filtered_outreach_list.csv",
-        )
-    else:
-        st.warning("Run `python 05_business_impact.py` first to generate the outreach list.")
+    tier_filter = st.multiselect(
+        "Filter by risk tier", options=["High", "Medium", "Low"],
+        default=["High", "Medium", "Low"],
+    )
+    filtered = outreach_df[outreach_df["RiskTier"].isin(tier_filter)]
+    st.write(f"Showing {len(filtered)} of {len(outreach_df)} customers")
+    st.dataframe(
+        filtered[["ChurnProba", "RiskTier", "MonthlyCharges", "tenure", "Contract"]]
+        .sort_values("ChurnProba", ascending=False),
+        use_container_width=True,
+    )
+    st.download_button(
+        "Download filtered list as CSV",
+        filtered.to_csv(index=False),
+        "filtered_outreach_list.csv",
+    )
