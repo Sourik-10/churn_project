@@ -25,8 +25,14 @@ outreach.
 
 ## 📸 Screenshots
 
-*(Add 2-3 screenshots of the dashboard here — Overview tab, Predict tab, and Risk List tab work best. Drag-drop the image files directly into this README on GitHub's web editor and it'll auto-generate the markdown.)*
+**Overview — headline KPIs**
+<img src="screenshots/overview.png" width="800">
 
+**Live prediction on a hypothetical customer**
+<img src="screenshots/predict.png" width="800">
+
+**Interactive EDA — tenure and payment method**
+<img src="screenshots/eda.png" width="800">
 ---
 
 ## 🧠 The Business Problem
