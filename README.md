@@ -54,3 +54,21 @@ that risk before it happens.**
 | Dataset | [IBM Telco Customer Churn](https://github.com/IBM/telco-customer-churn-on-icp4d) (7,043 rows) |
 
 ## 📁 Project Structure
+
+```
+churn-analysis-dashboard/
+├── app.py                       # Streamlit dashboard (EDA + live prediction + risk list)
+├── 01_clean_data.py             # Data cleaning & type fixes
+├── 02_feature_engineering.py    # Tenure buckets, add-on counts, interaction features
+├── 03_eda.py                    # Exploratory analysis with printed business interpretations
+├── 04_modeling.py                # LR / RF / XGBoost, SMOTE vs class-weight comparison
+├── 05_business_impact.py         # Cost-based threshold optimization + risk segmentation
+├── data/
+│   └── Telco-Customer-Churn.csv  # Raw dataset (7,043 rows)
+├── screenshots/
+│   ├── overview.png
+│   ├── predict.png
+│   └── eda.png
+├── requirements.txt
+└── README.md
+```
