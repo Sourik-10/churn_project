@@ -1,0 +1,8 @@
+data/telco_clean.csv
+data/telco_featured.csv
+models/
+outputs/*.png
+outputs/*.csv
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
