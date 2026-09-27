@@ -1,68 +1,50 @@
-# Churn Analysis & Retention — Telco Customer Churn
+# 📉 Customer Churn Analysis & Retention Dashboard
 
-End-to-end churn analysis on the IBM Telco Customer Churn dataset (7,043 customers,
-21 columns): cleaning → feature engineering → EDA → modeling → business-impact
-threshold optimization → risk-tier prioritized outreach list.
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-orange)](https://scikit-learn.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)](https://streamlit.io/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-## How to run
+An end-to-end churn analytics project on the IBM Telco Customer Churn dataset
+(7,043 customers, 21 features): data cleaning → feature engineering → EDA →
+predictive modeling → **cost-based business impact optimization** → an
+interactive Streamlit dashboard for live predictions and prioritized retention
+outreach.
 
-```bash
-pip install -r requirements.txt
-python 01_clean_data.py
-python 02_feature_engineering.py
-python 03_eda.py
-python 04_modeling.py
-python 05_business_impact.py
-```
+> 🎯 **Why this project is different from a typical churn tutorial:** most
+> churn projects stop at model accuracy. This one goes one step further and
+> asks *"what decision threshold actually maximizes retention campaign ROI,
+> given real campaign costs and customer lifetime value?"* — that's the
+> question a business actually cares about.
 
-Each script reads the previous script's output from `data/` or `outputs/` —
-run them in order the first time.
+---
 
-## Dashboard
+## 🖥️ Live Demo
 
-Once scripts 01, 02, and 04 have been run at least once (so `data/telco_featured.csv`
-and `models/best_model.pkl` exist):
+*(Add your Streamlit Cloud link here once deployed)*
 
-```bash
-streamlit run app.py
-```
+## 📸 Screenshots
 
-Opens an interactive dashboard with 4 tabs:
-- **Overview** — headline KPIs and the model comparison table
-- **EDA** — interactive contract/tenure/payment-method charts
-- **Predict a Customer** — fill in a hypothetical customer's details and get a
-  live churn probability + risk tier from the trained model
-- **Risk List** — filterable/sortable prioritized outreach list, downloadable as CSV
+*(Add 2-3 screenshots of the dashboard here — Overview tab, Predict tab, and Risk List tab work best)*
 
-## Files
+---
 
-| Script | What it does |
+## 🧠 The Business Problem
+
+In subscription businesses (OTT, SaaS, telecom), acquiring a new customer
+costs far more than retaining an existing one. This project simulates a
+Data Analyst / ML task: **identify which customers are at high risk of
+churning, understand why, and quantify the financial impact of acting on
+that risk before it happens.**
+
+## 🛠️ Tech Stack
+
+| Category | Tools |
 |---|---|
-| `01_clean_data.py` | Fixes `TotalCharges` type, handles the 11 blank-string rows (new customers), creates `ChurnFlag` |
-| `02_feature_engineering.py` | Tenure buckets, revenue-per-tenure-month, add-on service count, contract×price interaction flag |
-| `03_eda.py` | 5 plots + printed interpretation each — contract type, tenure "danger zone", an add-on/contract interaction, price×contract interaction, payment method |
-| `04_modeling.py` | Logistic Regression, Random Forest, XGBoost — compares `class_weight`/`scale_pos_weight` vs SMOTE, full precision/recall/F1/ROC-AUC table, saves best model |
-| `05_business_impact.py` | Cost-based threshold optimization (net $ value, not accuracy) + High/Medium/Low risk tiers + a prioritized outreach CSV |
+| Data manipulation | pandas, numpy |
+| Modeling | scikit-learn, XGBoost, imbalanced-learn (SMOTE) |
+| Visualization | matplotlib, seaborn, Plotly |
+| Dashboard | Streamlit |
+| Dataset | [IBM Telco Customer Churn](https://github.com/IBM/telco-customer-churn-on-icp4d) (7,043 rows) |
 
-## Key results (this run)
-
-- Overall churn rate: **26.5%**
-- Month-to-month churn (**42.7%**) vs longest-contract churn (**2.8%**) — a ~15x gap
-- First 6 months are the highest-risk window (**52.9%** churn vs **9.5%** after 4+ years)
-- Best model: **Logistic Regression** (ROC-AUC 0.841) — beat both tree-based models on this dataset, which is itself worth mentioning in an interview: more complexity isn't automatically better
-- Switching from a naive 0.5 probability cutoff to the cost-optimal threshold (given assumed $15 campaign cost / $500 avg CLV) improved modeled net campaign value by **~$68k** on the test set alone
-
-## Honest caveats (say these out loud in an interview — they show judgment, not weakness)
-
-- The counter-intuitive add-on finding (customers WITH add-ons churn *more* within
-  month-to-month contracts) is worth investigating further, not just reporting —
-  a real analyst would check billing complaints or run this by a stakeholder
-  before acting on it.
-- `CAMPAIGN_COST` and `AVG_CLV` in `05_business_impact.py` are assumed placeholder
-  numbers. In a real setting these come from finance/marketing — swap them in and
-  the optimal threshold and $ impact will change.
-- The optimal threshold found (0.06) is aggressive — it flags most customers for
-  outreach because the assumed CLV ($500) is much larger than the campaign cost
-  ($15). That's a legitimate result of these assumptions, not a bug, but it's
-  worth sanity-checking against what a real retention team could operationally
-  handle (call center capacity, etc.).
+## 📁 Project Structure
