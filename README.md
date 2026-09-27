@@ -21,11 +21,11 @@ outreach.
 
 ## 🖥️ Live Demo
 
-*(Add your Streamlit Cloud link here once deployed)*
+**[👉 Try the dashboard here](https://sourik-10-churn-project-app-4ui778.streamlit.app/)**
 
 ## 📸 Screenshots
 
-*(Add 2-3 screenshots of the dashboard here — Overview tab, Predict tab, and Risk List tab work best)*
+*(Add 2-3 screenshots of the dashboard here — Overview tab, Predict tab, and Risk List tab work best. Drag-drop the image files directly into this README on GitHub's web editor and it'll auto-generate the markdown.)*
 
 ---
 
@@ -44,7 +44,7 @@ that risk before it happens.**
 | Data manipulation | pandas, numpy |
 | Modeling | scikit-learn, XGBoost, imbalanced-learn (SMOTE) |
 | Visualization | matplotlib, seaborn, Plotly |
-| Dashboard | Streamlit |
+| Dashboard | Streamlit (self-bootstrapping — trains/caches on first load) |
 | Dataset | [IBM Telco Customer Churn](https://github.com/IBM/telco-customer-churn-on-icp4d) (7,043 rows) |
 
 ## 📁 Project Structure
